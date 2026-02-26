@@ -1,0 +1,15 @@
+{
+  "name": "g-tools",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"yarn workspace server dev\" \"yarn workspace client dev\"",
+    "build": "yarn workspace server build && yarn workspace client build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
