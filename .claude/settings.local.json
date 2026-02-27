@@ -3,7 +3,8 @@
     "allow": [
       "Bash(yarn install)",
       "Bash(del:*)",
-      "mcp__plugin_superpowers-chrome_chrome__use_browser"
+      "mcp__plugin_superpowers-chrome_chrome__use_browser",
+      "WebFetch(domain:www.npmjs.com)"
     ]
   }
 }

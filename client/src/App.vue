@@ -6,8 +6,8 @@
       <span></span>
       <span></span>
     </button>
-    
-    <header class="header">
+
+    <aside class="sidebar" :class="{ open: menuOpen }">
       <div class="logo">
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
           <circle cx="14" cy="14" r="13" fill="#e6a23c" stroke="#d4940a" stroke-width="1"/>
@@ -15,41 +15,7 @@
         </svg>
         <span class="logo-text">G-Tools</span>
       </div>
-      <nav class="desktop-nav">
-        <router-link to="/" class="menu-item" exact-active-class="active" @click="menuOpen = false">
-          <span class="menu-icon">📊</span>仪表盘
-        </router-link>
-        <router-link to="/sentiment" class="menu-item" active-class="active" @click="menuOpen = false">
-          <span class="menu-icon">🧠</span>市场情绪
-        </router-link>
-        <router-link to="/intel" class="menu-item" active-class="active" @click="menuOpen = false">
-          <span class="menu-icon">📡</span>实时情报
-        </router-link>
-        <router-link to="/settings" class="menu-item" active-class="active" @click="menuOpen = false">
-          <span class="menu-icon">⚙️</span>系统设置
-        </router-link>
-      </nav>
-      <!-- Desktop price ticker -->
-      <div class="price-ticker" v-if="prices.length">
-        <div class="ticker-item" v-for="item in prices" :key="item.symbol">
-          <span class="ticker-name">{{ item.name }}</span>
-          <span class="ticker-price">{{ item.currency }}{{ item.price }}</span>
-          <span class="ticker-change" :class="item.change >= 0 ? 'up' : 'down'">
-            {{ item.change >= 0 ? '+' : '' }}{{ item.change_pct }}%
-          </span>
-        </div>
-      </div>
-    </header>
-    
-    <aside class="sidebar" :class="{ open: menuOpen }">
-      <div class="logo mobile-only">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <circle cx="14" cy="14" r="13" fill="#e6a23c" stroke="#d4940a" stroke-width="1"/>
-          <text x="14" y="18" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">G</text>
-        </svg>
-        <span class="logo-text">G-Tools</span>
-      </div>
-      <nav>
+      <nav class="sidebar-nav">
         <router-link to="/" class="menu-item" exact-active-class="active" @click="menuOpen = false">
           <span class="menu-icon">📊</span>仪表盘
         </router-link>
@@ -64,16 +30,30 @@
         </router-link>
       </nav>
     </aside>
-    <main class="content">
-      <router-view />
-    </main>
-    
+
+    <div class="main-area">
+      <header class="header">
+        <div class="price-ticker" v-if="prices.length">
+          <div class="ticker-item" v-for="item in prices" :key="item.symbol">
+            <span class="ticker-name">{{ item.name }}</span>
+            <span class="ticker-price">{{ item.currency }}{{ item.price }}</span>
+            <span class="ticker-change" :class="item.change >= 0 ? 'up' : 'down'">
+              {{ item.change >= 0 ? '+' : '' }}{{ item.change_pct }}%
+            </span>
+          </div>
+        </div>
+      </header>
+      <main class="content">
+        <router-view />
+      </main>
+    </div>
+
     <div class="overlay" :class="{ show: menuOpen }" @click="menuOpen = false"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 interface GoldPrice {
   source: string
@@ -88,8 +68,9 @@ interface GoldPrice {
 
 const menuOpen = ref(false)
 const prices = ref<GoldPrice[]>([])
+let timer: ReturnType<typeof setInterval>
 
-onMounted(async () => {
+async function fetchPrices() {
   try {
     const res = await fetch('/api/gold')
     const json = await res.json()
@@ -97,6 +78,15 @@ onMounted(async () => {
       prices.value = json.data
     }
   } catch {}
+}
+
+onMounted(() => {
+  fetchPrices()
+  timer = setInterval(fetchPrices, 30000)
+})
+
+onUnmounted(() => {
+  clearInterval(timer)
 })
 </script>
 
@@ -120,26 +110,32 @@ a {
 
 .layout {
   min-height: 100vh;
-  display: block;
+  display: flex;
 }
 
-.header {
-  width: 100%;
+.sidebar {
+  width: 220px;
+  min-height: 100vh;
   background: #fff;
-  border-bottom: 1px solid #eee;
-  padding: 12px 24px;
+  border-right: 1px solid #eee;
   display: flex;
-  align-items: center;
-  position: sticky;
+  flex-direction: column;
+  position: fixed;
   top: 0;
-  z-index: 50;
-  gap: 24px;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+  padding: 0;
 }
 
 .logo {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 0 20px;
+  height: 52px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 12px;
 }
 
 .logo-text {
@@ -148,19 +144,41 @@ a {
   color: #333;
 }
 
-.desktop-nav {
+.sidebar-nav {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+}
+
+.main-area {
+  margin-left: 220px;
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  width: 100%;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: 52px;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 10px 20px;
   font-size: 14px;
   color: #666;
   border-radius: 8px;
+  margin: 2px 10px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
@@ -182,10 +200,10 @@ a {
 
 /* Price ticker */
 .price-ticker {
-  margin-left: auto;
   display: flex;
   gap: 20px;
   overflow-x: auto;
+  margin-left: auto;
 }
 
 .ticker-item {
@@ -217,12 +235,9 @@ a {
   color: #67c23a;
 }
 
-.sidebar {
-  display: none;
-}
-
 .content {
   padding: 24px;
+  flex: 1;
 }
 
 /* Mobile */
@@ -255,56 +270,35 @@ a {
   display: none;
 }
 
-.mobile-only {
-  display: none;
-}
-
 @media (max-width: 768px) {
-  .header {
-    display: none;
-  }
-
-  .mobile-hamburger {
-    display: flex;
-  }
-
   .sidebar {
-    display: flex;
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 200px;
-    height: 100vh;
-    flex-direction: column;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
-    z-index: 100;
-    padding: 20px 0;
-    background: #fff;
   }
 
   .sidebar.open {
     transform: translateX(0);
   }
 
-  .mobile-only {
-    display: flex !important;
-    padding: 0 20px 20px;
-    border-bottom: 1px solid #eee;
-    margin-bottom: 12px;
+  .main-area {
+    margin-left: 0;
   }
 
-  .sidebar nav {
-    flex-direction: column;
+  .mobile-hamburger {
+    display: flex;
   }
 
-  .menu-item {
-    padding: 12px 20px;
+  .overlay.show {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 99;
   }
 
   .content {
     padding: 16px;
+    padding-top: 60px;
   }
 }
 </style>

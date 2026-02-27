@@ -102,4 +102,39 @@ router.get('/sentiment', async (_req, res) => {
   }
 });
 
+const VDJ_BASE = 'https://gold.vdj.me';
+
+// 代理 - 趋势预测
+router.get('/vdj/predict', async (_req, res) => {
+  try {
+    const resp = await fetch(`${VDJ_BASE}/api/predict`);
+    const data = await resp.json();
+    res.json(data);
+  } catch {
+    res.status(500).json({ code: 500, msg: 'Failed to fetch predict data' });
+  }
+});
+
+// 代理 - 全球报价
+router.get('/vdj/quotes', async (_req, res) => {
+  try {
+    const resp = await fetch(`${VDJ_BASE}/api/prices?type=quotes`);
+    const data = await resp.json();
+    res.json(data);
+  } catch {
+    res.status(500).json({ code: 500, msg: 'Failed to fetch quotes data' });
+  }
+});
+
+// 代理 - 宏观指标
+router.get('/vdj/macro', async (_req, res) => {
+  try {
+    const resp = await fetch(`${VDJ_BASE}/api/macro`);
+    const data = await resp.json();
+    res.json(data);
+  } catch {
+    res.status(500).json({ code: 500, msg: 'Failed to fetch macro data' });
+  }
+});
+
 export default router;

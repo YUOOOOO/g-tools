@@ -21,11 +21,25 @@
     <div class="loading" v-else-if="loading">加载中...</div>
     <div class="error" v-else-if="error">{{ error }}</div>
 
-    <!-- 走势图区域 -->
-    <div class="chart-section" v-if="selectedType">
-      <h2>{{ selectedName }} 今日走势</h2>
-      <div class="chart-container">
+    <!-- 趋势分析模块 -->
+    <div class="trend-section" v-if="prices.length">
+      <div class="trend-header">
+        <h2>趋势分析</h2>
+        <div class="trend-tabs">
+          <button
+            v-for="item in prices"
+            :key="item.symbol"
+            class="trend-tab"
+            :class="{ active: selectedType === (typeMap[item.symbol] || 'zs') }"
+            @click="selectType(item)"
+          >{{ item.name }}</button>
+        </div>
+      </div>
+      <div class="chart-container" v-if="selectedType">
         <canvas ref="chartCanvas"></canvas>
+      </div>
+      <div class="chart-placeholder" v-else>
+        请选择银行查看趋势走势
       </div>
     </div>
   </div>
@@ -57,6 +71,17 @@ const error = ref('');
 const selectedType = ref('');
 const selectedName = ref('');
 const chartCanvas = ref<HTMLCanvasElement | null>(null);
+let chartState: {
+  points: ChartPoint[];
+  w: number;
+  h: number;
+  pad: { top: number; right: number; bottom: number; left: number };
+  minP: number;
+  maxP: number;
+  range: number;
+  chartW: number;
+  chartH: number;
+} | null = null;
 
 const typeMap: Record<string, string> = {
   CZB: 'zs', CMBC: 'ms', ICBC: 'icbc', CGB: 'cgb', CIB: 'cib', LONDON: 'gj'
@@ -122,14 +147,32 @@ function drawChart(points: ChartPoint[]) {
   const minP = Math.min(...ps);
   const maxP = Math.max(...ps);
   const range = maxP - minP || 1;
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
 
+  chartState = { points, w, h, pad, minP, maxP, range, chartW, chartH };
+
+  drawBase(ctx, points, w, h, pad, minP, maxP, range, chartW, chartH);
+
+  // bindmouse events
+  canvas.onmousemove = (e) => onChartMouseMove(e, canvas);
+  canvas.onmouseleave = () => onChartMouseLeave(canvas);
+}
+
+function drawBase(
+  ctx: CanvasRenderingContext2D, points: ChartPoint[],
+  w: number, h: number,
+  pad: { top: number; right: number; bottom: number; left: number },
+  minP: number, maxP: number, range: number,
+  chartW: number, chartH: number
+) {
   ctx.clearRect(0, 0, w, h);
 
   // grid lines
   ctx.strokeStyle = '#eee';
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
-    const y = pad.top + ((h - pad.top - pad.bottom) / 4) * i;
+    const y = pad.top + (chartH / 4) * i;
     ctx.beginPath();
     ctx.moveTo(pad.left, y);
     ctx.lineTo(w - pad.right, y);
@@ -142,9 +185,6 @@ function drawChart(points: ChartPoint[]) {
   }
 
   // line
-  const chartW = w - pad.left - pad.right;
-  const chartH = h - pad.top - pad.bottom;
-
   ctx.beginPath();
   ctx.strokeStyle = '#e6a23c';
   ctx.lineWidth = 2;
@@ -157,11 +197,10 @@ function drawChart(points: ChartPoint[]) {
   ctx.stroke();
 
   // gradient fill
-  const lastX = pad.left + chartW;
   const gradient = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
   gradient.addColorStop(0, 'rgba(230, 162, 60, 0.3)');
   gradient.addColorStop(1, 'rgba(230, 162, 60, 0)');
-  ctx.lineTo(lastX, h - pad.bottom);
+  ctx.lineTo(pad.left + chartW, h - pad.bottom);
   ctx.lineTo(pad.left, h - pad.bottom);
   ctx.closePath();
   ctx.fillStyle = gradient;
@@ -181,8 +220,90 @@ function drawChart(points: ChartPoint[]) {
   }
 }
 
+function onChartMouseMove(e: MouseEvent, canvas: HTMLCanvasElement) {
+  if (!chartState) return;
+  const { points, w, h, pad, minP, maxP, range, chartW, chartH } = chartState;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+
+  // find nearest point index
+  const ratio = (mouseX - pad.left) / chartW;
+  const idx = Math.round(ratio * (points.length - 1));
+  if (idx < 0 || idx >= points.length) return;
+
+  const pt = points[idx];
+  const x = pad.left + (idx / (points.length - 1)) * chartW;
+  const y = pad.top + (1 - (pt.p - minP) / range) * chartH;
+
+  // redraw base
+  ctx.save();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawBase(ctx, points, w, h, pad, minP, maxP, range, chartW, chartH);
+
+  // vertical dashed line
+  ctx.strokeStyle = '#ccc';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(x, pad.top);
+  ctx.lineTo(x, h - pad.bottom);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // dot
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#e6a23c';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // tooltip
+  const d = new Date(pt.t * 1000);
+  const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  const text = `${pt.p.toFixed(2)}  ${time}`;
+  ctx.font = '12px sans-serif';
+  const tw = ctx.measureText(text).width + 16;
+  const th = 28;
+  let tx = x - tw / 2;
+  if (tx < pad.left) tx = pad.left;
+  if (tx + tw > w - pad.right) tx = w - pad.right - tw;
+  const ty = y - th - 10;
+
+  ctx.fillStyle = 'rgba(51,51,51,0.9)';
+  ctx.beginPath();
+  ctx.roundRect(tx, ty, tw, th, 4);
+  ctx.fill();
+
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, tx + tw / 2, ty + 18);
+
+  ctx.restore();
+}
+
+function onChartMouseLeave(canvas: HTMLCanvasElement) {
+  if (!chartState) return;
+  const { points, w, h, pad, minP, maxP, range, chartW, chartH } = chartState;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  ctx.save();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawBase(ctx, points, w, h, pad, minP, maxP, range, chartW, chartH);
+  ctx.restore();
+}
+
 onMounted(async () => {
   await fetchPrices();
+  if (prices.value.length) {
+    selectType(prices.value[0]);
+  }
 });
 </script>
 
@@ -299,5 +420,65 @@ onMounted(async () => {
 
 .chart-container {
   width: 100%;
+}
+
+.trend-section {
+  max-width: 1000px;
+  margin: 32px auto 0;
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.trend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.trend-header h2 {
+  font-size: 18px;
+  color: #333;
+  margin: 0;
+}
+
+.trend-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.trend-tab {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  background: #fff;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.trend-tab:hover {
+  border-color: #e6a23c;
+  color: #e6a23c;
+}
+
+.trend-tab.active {
+  background: #fdf6ec;
+  border-color: #e6a23c;
+  color: #e6a23c;
+  font-weight: 600;
+}
+
+.chart-placeholder {
+  text-align: center;
+  padding: 60px 0;
+  color: #ccc;
+  font-size: 14px;
 }
 </style>
