@@ -53,7 +53,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { useRefreshInterval } from './useRefreshInterval'
 
 interface GoldPrice {
   source: string
@@ -68,6 +69,7 @@ interface GoldPrice {
 
 const menuOpen = ref(false)
 const prices = ref<GoldPrice[]>([])
+const refreshInterval = useRefreshInterval()
 let timer: ReturnType<typeof setInterval>
 
 async function fetchPrices() {
@@ -82,7 +84,12 @@ async function fetchPrices() {
 
 onMounted(() => {
   fetchPrices()
-  timer = setInterval(fetchPrices, 30000)
+  timer = setInterval(fetchPrices, refreshInterval.value * 1000)
+})
+
+watch(refreshInterval, (val) => {
+  clearInterval(timer)
+  timer = setInterval(fetchPrices, val * 1000)
 })
 
 onUnmounted(() => {

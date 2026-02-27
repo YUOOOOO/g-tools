@@ -79,7 +79,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRefreshInterval } from '../useRefreshInterval'
 
 interface Factor {
   name: string
@@ -119,6 +120,7 @@ interface MacroIndicator {
 const predict = ref<Prediction | null>(null)
 const quotes = ref<Record<string, Quote> | null>(null)
 const macro = ref<MacroIndicator[]>([])
+const refreshInterval = useRefreshInterval()
 const loading = ref(true)
 const error = ref('')
 let timer: ReturnType<typeof setInterval>
@@ -177,7 +179,12 @@ async function fetchAll() {
 
 onMounted(() => {
   fetchAll()
-  timer = setInterval(fetchAll, 30000)
+  timer = setInterval(fetchAll, refreshInterval.value * 1000)
+})
+
+watch(refreshInterval, (val) => {
+  clearInterval(timer)
+  timer = setInterval(fetchAll, val * 1000)
 })
 
 onUnmounted(() => {

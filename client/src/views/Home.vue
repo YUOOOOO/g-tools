@@ -46,7 +46,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import { useRefreshInterval } from '../useRefreshInterval';
 
 interface GoldPrice {
   source: string;
@@ -299,11 +300,31 @@ function onChartMouseLeave(canvas: HTMLCanvasElement) {
   ctx.restore();
 }
 
+const refreshInterval = useRefreshInterval();
+let timer: ReturnType<typeof setInterval>
+
+async function refreshData() {
+  await fetchPrices();
+  if (selectedType.value) {
+    await fetchChart(selectedType.value);
+  }
+}
+
 onMounted(async () => {
   await fetchPrices();
   if (prices.value.length) {
     selectType(prices.value[0]);
   }
+  timer = setInterval(refreshData, refreshInterval.value * 1000);
+});
+
+watch(refreshInterval, (val) => {
+  clearInterval(timer);
+  timer = setInterval(refreshData, val * 1000);
+});
+
+onUnmounted(() => {
+  clearInterval(timer);
 });
 </script>
 
