@@ -435,6 +435,47 @@ onUnmounted(() => {
   .outlook-row {
     grid-template-columns: 1fr;
   }
+
+  .signal-banner {
+    flex-wrap: wrap;
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .signal-score {
+    font-size: 28px;
+  }
+
+  .signal-confidence {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .factors-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quotes-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .quote-price {
+    font-size: 18px;
+  }
+
+  .macro-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .macro-value {
+    font-size: 18px;
+  }
+
+  .section h2 {
+    font-size: 16px;
+  }
 }
 
 .loading, .error {

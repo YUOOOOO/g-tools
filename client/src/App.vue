@@ -304,8 +304,21 @@ a {
   }
 
   .content {
-    padding: 16px;
+    padding: 12px;
     padding-top: 60px;
+  }
+
+  .header {
+    padding: 0 12px;
+  }
+
+  .price-ticker {
+    gap: 12px;
+  }
+
+  .ticker-item {
+    font-size: 12px;
+    gap: 4px;
   }
 }
 </style>

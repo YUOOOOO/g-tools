@@ -502,4 +502,41 @@ onUnmounted(() => {
   color: #ccc;
   font-size: 14px;
 }
+
+@media (max-width: 768px) {
+  .cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .price {
+    font-size: 22px;
+  }
+
+  .trend-section {
+    margin-top: 20px;
+    padding: 16px;
+  }
+
+  .trend-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .trend-tabs {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .trend-tab {
+    flex-shrink: 0;
+  }
+}
 </style>
